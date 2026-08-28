@@ -274,7 +274,8 @@
       <div class="stats">
         <div class="stat-card"><b id="d-income">0</b><span>دخل من المرضى (جنيه)</span></div>
         <div class="stat-card"><b id="d-purchases">0</b><span>مشتريات (جنيه)</span></div>
-        <div class="stat-card"><b id="d-expenses">0</b><span>مصروفات (جنيه)</span></div>
+        <div class="stat-card"><b id="d-expenses-clinic">0</b><span>مصروفات عيادة (جنيه)</span></div>
+        <div class="stat-card"><b id="d-expenses-personal">0</b><span>مصروفات شخصية (جنيه)</span></div>
         <div class="stat-card profit"><b id="d-profit">0</b><span>صافي الربح (جنيه)</span></div>
       </div>
       <div class="stats">
@@ -1050,7 +1051,7 @@ function addPatient(){
 function patientTotals(p){
   const cost = (p.visits||[]).reduce((s,v)=>s+v.cost,0);
   const paid = (p.payments||[]).reduce((s,v)=>s+v.amount,0);
-  return { cost, paid, remaining: cost-paid };
+  return { cost, paid, remaining: Math.max(0, cost-paid) };
 }
 
 function addVisit(id){
@@ -1147,10 +1148,11 @@ function renderPatients(){
 
   const totalDue = patients.reduce((s,p)=>s+patientTotals(p).cost,0);
   const totalPaid = patients.reduce((s,p)=>s+patientTotals(p).paid,0);
+  const totalRemaining = patients.reduce((s,p)=>s+patientTotals(p).remaining,0);
   document.getElementById('stat-patients-count').textContent = patients.length;
   document.getElementById('stat-total-due').textContent = fmt(totalDue);
   document.getElementById('stat-total-paid').textContent = fmt(totalPaid);
-  document.getElementById('stat-total-remaining').textContent = fmt(totalDue-totalPaid);
+  document.getElementById('stat-total-remaining').textContent = fmt(totalRemaining);
 }
 document.getElementById('filter-patients').addEventListener('input', ()=>{ renderPatients(); renderSuggestions(); });
 document.getElementById('filter-patients').addEventListener('focus', renderSuggestions);
@@ -1681,14 +1683,18 @@ function renderDashboard(){
     const it = items.find(i=>i.id===l.itemId);
     return s + l.qty * (it?it.price:0);
   },0);
-  const expensesTotal = expenses.filter(e=>inRange(e.date)).reduce((s,e)=>s+e.amount,0);
+  const expensesInRange = expenses.filter(e=>inRange(e.date));
+  const expensesClinic = expensesInRange.filter(e=>expenseType(e)==='clinic').reduce((s,e)=>s+e.amount,0);
+  const expensesPersonal = expensesInRange.filter(e=>expenseType(e)==='personal').reduce((s,e)=>s+e.amount,0);
+  const expensesTotal = expensesClinic + expensesPersonal;
   const profit = income - purchasesTotal - expensesTotal;
   const upcoming = appointments.filter(a=>a.date>=todayStr() && a.status==='محجوز').length;
   const lowStock = items.filter(it=>it.qty<=it.min).length;
 
   document.getElementById('d-income').textContent = fmt(income);
   document.getElementById('d-purchases').textContent = fmt(purchasesTotal);
-  document.getElementById('d-expenses').textContent = fmt(expensesTotal);
+  document.getElementById('d-expenses-clinic').textContent = fmt(expensesClinic);
+  document.getElementById('d-expenses-personal').textContent = fmt(expensesPersonal);
   document.getElementById('d-profit').textContent = fmt(profit);
   document.getElementById('d-visits').textContent = visitsCount;
   document.getElementById('d-appointments').textContent = upcoming;
