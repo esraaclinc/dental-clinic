@@ -461,14 +461,21 @@
   <!-- ================= EXPENSES ================= -->
   <section id="tab-expenses" style="display:none;">
     <div class="stats">
-      <div class="stat-card"><b id="stat-expenses-count">0</b><span>عدد المصروفات</span></div>
-      <div class="stat-card"><b id="stat-expenses-total">0</b><span>إجمالي المصروفات</span></div>
+      <div class="stat-card"><b id="stat-expenses-count">0</b><span>عدد المصروفات (الظاهرة بالفلتر)</span></div>
+      <div class="stat-card"><b id="stat-expenses-clinic-total">0</b><span>إجمالي مصروفات العيادة</span></div>
+      <div class="stat-card"><b id="stat-expenses-personal-total">0</b><span>إجمالي المصروفات الشخصية</span></div>
+      <div class="stat-card"><b id="stat-expenses-grand-total">0</b><span>إجمالي كل المصروفات</span></div>
     </div>
     <div class="panel">
       <div class="panel-head">
         <h2>سجل المصروفات</h2>
         <div class="filter-row">
           <input id="filter-expenses" placeholder="ابحث بالوصف أو التصنيف...">
+          <select id="filter-exp-type">
+            <option value="">كل الأنواع</option>
+            <option value="clinic">مصروفات عيادة</option>
+            <option value="personal">مصروفات شخصية</option>
+          </select>
           <input id="filter-exp-from" type="date" title="من تاريخ">
           <input id="filter-exp-to" type="date" title="إلى تاريخ">
         </div>
@@ -477,14 +484,14 @@
       <div class="form-card" id="expense-form">
         <div class="form-grid">
           <label>الوصف<input id="e-desc" placeholder="مثال: فاتورة كهرباء"></label>
-          <label>التصنيف
-            <select id="e-cat">
-              <option value="إيجار">إيجار</option>
-              <option value="كهرباء ومياه">كهرباء ومياه</option>
-              <option value="رواتب">رواتب</option>
-              <option value="صيانة">صيانة</option>
-              <option value="أخرى">أخرى</option>
+          <label>النوع
+            <select id="e-type" onchange="updateExpenseCategoryOptions()">
+              <option value="clinic">مصروفات عيادة</option>
+              <option value="personal">مصروفات شخصية</option>
             </select>
+          </label>
+          <label>التصنيف
+            <select id="e-cat"></select>
           </label>
           <label>المبلغ<input id="e-amount" type="number" placeholder="0"></label>
           <label>التاريخ<input id="e-date" type="date"></label>
@@ -496,7 +503,7 @@
       </div>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>الوصف</th><th>التصنيف</th><th>المبلغ</th><th>التاريخ</th><th></th></tr></thead>
+          <thead><tr><th>الوصف</th><th>النوع</th><th>التصنيف</th><th>المبلغ</th><th>التاريخ</th><th></th></tr></thead>
           <tbody id="expenses-body"></tbody>
         </table>
         <div class="empty-state" id="expenses-empty" style="display:none;">لا توجد مصروفات مسجلة بعد</div>
@@ -987,7 +994,10 @@ function openMonthDetail(monthStr){
 
   const expList = expenses.filter(e=>inRange(e.date));
   document.getElementById('md-expenses').innerHTML = expList.length
-    ? expList.map(e=>`<li><span>${e.date} — ${escapeHtml(e.desc)} (${escapeHtml(e.cat)})</span><span class="h-amount">${fmt(e.amount)}</span></li>`).join('')
+    ? expList.map(e=>{
+        const t = expenseType(e);
+        return `<li><span>${e.date} — ${escapeHtml(e.desc)} (${escapeHtml(e.cat)}${t==='personal'?' · شخصي':''})</span><span class="h-amount">${fmt(e.amount)}</span></li>`;
+      }).join('')
     : '<li class="history-empty" style="border:none;">لا توجد مصروفات</li>';
 
   const purList = invLog.filter(l=>l.type==='purchase' && inRange(l.date));
@@ -1564,16 +1574,29 @@ document.getElementById('filter-inv-log').addEventListener('input', renderInvLog
 document.getElementById('filter-inv-type').addEventListener('change', renderInvLog);
 
 /* ============ EXPENSES ============ */
+const CLINIC_EXPENSE_CATS = ['مرتبات','إيجار','صيانة','كهرباء/مياة','مواد نظافة','أخرى'];
+const PERSONAL_EXPENSE_CATS = ['أيمن','إسراء','أخرى'];
+
+function updateExpenseCategoryOptions(){
+  const type = document.getElementById('e-type').value;
+  const cats = type === 'personal' ? PERSONAL_EXPENSE_CATS : CLINIC_EXPENSE_CATS;
+  document.getElementById('e-cat').innerHTML = cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+}
+function expenseType(e){ return e.type || 'clinic'; } // old records saved before this feature default to clinic
+
 function addExpense(){
   const desc = document.getElementById('e-desc').value.trim();
+  const type = document.getElementById('e-type').value;
   const cat = document.getElementById('e-cat').value;
   const amount = parseFloat(document.getElementById('e-amount').value)||0;
   const date = document.getElementById('e-date').value || todayStr();
   if(!desc){ alert('من فضلك أدخل وصف المصروف'); return; }
-  expenses.unshift({ id:Date.now(), desc, cat, amount, date });
+  expenses.unshift({ id:Date.now(), desc, type, cat, amount, date });
   saveList('expenses-list', expenses);
   logAction('إضافة مصروف', desc+' — '+fmt(amount));
   ['e-desc','e-amount','e-date'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('e-type').value = 'clinic';
+  updateExpenseCategoryOptions();
   toggleForm('expense-form');
   renderExpenses();
 }
@@ -1587,26 +1610,36 @@ function deleteExpense(id){
 }
 function renderExpenses(){
   const q = (document.getElementById('filter-expenses').value||'').trim();
+  const typeFilter = document.getElementById('filter-exp-type').value;
   const from = document.getElementById('filter-exp-from').value;
   const to = document.getElementById('filter-exp-to').value;
   let list = expenses.filter(e => !q || e.desc.includes(q) || (e.cat||'').includes(q));
+  if(typeFilter) list = list.filter(e=>expenseType(e)===typeFilter);
   if(from) list = list.filter(e=>e.date >= from);
   if(to) list = list.filter(e=>e.date <= to);
   const body = document.getElementById('expenses-body');
-  body.innerHTML = list.map(e=>`
-    <tr>
+  body.innerHTML = list.map(e=>{
+    const t = expenseType(e);
+    return `<tr>
       <td><b>${escapeHtml(e.desc)}</b></td>
+      <td>${t==='personal' ? '<span class="badge badge-status">شخصي</span>' : '<span class="badge badge-ok">عيادة</span>'}</td>
       <td>${escapeHtml(e.cat)}</td>
       <td class="amount">${fmt(e.amount)}</td>
       <td class="muted">${e.date}</td>
       <td>${canEdit('expenses') ? `<button class="btn btn-danger btn-sm" onclick="deleteExpense(${e.id})">حذف</button>` : ''}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   document.getElementById('expenses-empty').style.display = list.length?'none':'block';
-  const total = list.reduce((s,e)=>s+e.amount,0);
+  const clinicTotal = list.filter(e=>expenseType(e)==='clinic').reduce((s,e)=>s+e.amount,0);
+  const personalTotal = list.filter(e=>expenseType(e)==='personal').reduce((s,e)=>s+e.amount,0);
   document.getElementById('stat-expenses-count').textContent = list.length;
-  document.getElementById('stat-expenses-total').textContent = fmt(total);
+  document.getElementById('stat-expenses-clinic-total').textContent = fmt(clinicTotal);
+  document.getElementById('stat-expenses-personal-total').textContent = fmt(personalTotal);
+  document.getElementById('stat-expenses-grand-total').textContent = fmt(clinicTotal + personalTotal);
 }
 ['filter-expenses','filter-exp-from','filter-exp-to'].forEach(id=>document.getElementById(id).addEventListener('input', renderExpenses));
+document.getElementById('filter-exp-type').addEventListener('change', renderExpenses);
+updateExpenseCategoryOptions();
 
 /* ============ AUDIT ============ */
 function renderAudit(){
