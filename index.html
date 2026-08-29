@@ -247,6 +247,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
     المصروفات
   </button>
+  <button class="tab-btn" data-tab="income">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V4M5 11l7-7 7 7"/></svg>
+    الوارد
+  </button>
   <button class="tab-btn" data-tab="audit">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6M9 16h6M9 8h6"/><rect x="4" y="3" width="16" height="18" rx="2"/></svg>
     سجل النشاط
@@ -273,6 +277,7 @@
       </div>
       <div class="stats">
         <div class="stat-card"><b id="d-income">0</b><span>دخل من المرضى (جنيه)</span></div>
+        <div class="stat-card"><b id="d-other-income">0</b><span>الوارد (جنيه)</span></div>
         <div class="stat-card"><b id="d-purchases">0</b><span>مشتريات (جنيه)</span></div>
         <div class="stat-card"><b id="d-expenses-clinic">0</b><span>مصروفات عيادة (جنيه)</span></div>
         <div class="stat-card"><b id="d-expenses-personal">0</b><span>مصروفات شخصية (جنيه)</span></div>
@@ -292,7 +297,7 @@
       <p class="muted" style="margin:-4px 0 12px;">يتم إقفال الشهر السابق تلقائيًا أول ما تفتح البرنامج بعد بداية شهر جديد، والأرقام هنا ثابتة ولا تتغير حتى لو عدّلت بيانات قديمة بعد الإقفال.</p>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>الشهر</th><th>الدخل</th><th>المشتريات</th><th>المصروفات</th><th>صافي الربح</th><th></th></tr></thead>
+          <thead><tr><th>الشهر</th><th>الدخل (كشوفات)</th><th>الوارد</th><th>المشتريات</th><th>المصروفات</th><th>صافي الربح</th><th></th></tr></thead>
           <tbody id="closed-months-body"></tbody>
         </table>
         <div class="empty-state" id="closed-months-empty" style="display:none;">لسه مفيش أشهر مقفولة (هتظهر هنا أول ما يعدي شهر كامل)</div>
@@ -512,6 +517,43 @@
     </div>
   </section>
 
+  <!-- ================= INCOME (وارد) ================= -->
+  <section id="tab-income" style="display:none;">
+    <div class="stats">
+      <div class="stat-card"><b id="stat-income-count">0</b><span>عدد العمليات</span></div>
+      <div class="stat-card"><b id="stat-income-total">0</b><span>إجمالي الوارد (جنيه)</span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>الوارد (دخل غير من المرضى)</h2>
+        <div class="filter-row">
+          <input id="filter-income" placeholder="ابحث بالوصف...">
+          <input id="filter-income-from" type="date" title="من تاريخ">
+          <input id="filter-income-to" type="date" title="إلى تاريخ">
+        </div>
+        <button class="btn btn-primary" id="add-income-btn" onclick="toggleForm('income-form')">+ إضافة وارد</button>
+      </div>
+      <div class="form-card" id="income-form">
+        <div class="form-grid">
+          <label>الوصف / المصدر<input id="in-desc" placeholder="مثال: بيع جهاز قديم"></label>
+          <label>المبلغ<input id="in-amount" type="number" placeholder="0"></label>
+          <label>التاريخ<input id="in-date" type="date"></label>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="addIncome()">حفظ</button>
+          <button class="btn btn-ghost" onclick="toggleForm('income-form')">إلغاء</button>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>الوصف</th><th>المبلغ</th><th>التاريخ</th><th></th></tr></thead>
+          <tbody id="income-body"></tbody>
+        </table>
+        <div class="empty-state" id="income-empty" style="display:none;">لا يوجد وارد مسجل بعد</div>
+      </div>
+    </div>
+  </section>
+
   <!-- ================= AUDIT LOG ================= -->
   <section id="tab-audit" style="display:none;">
     <div class="panel">
@@ -616,6 +658,8 @@
       <button class="modal-close" onclick="closeMonthDetail()">✕</button>
     </div>
     <div class="modal-body">
+      <p class="modal-section-title">بنود الوارد</p>
+      <ul class="history-list" id="md-income"></ul>
       <p class="modal-section-title">بنود المصروفات</p>
       <ul class="history-list" id="md-expenses"></ul>
       <p class="modal-section-title">حركات المشتريات</p>
@@ -721,6 +765,7 @@ let appointments = [];
 let items = [];
 let invLog = [];
 let expenses = [];
+let otherIncome = [];
 let auditLog = [];
 let closedMonths = [];
 let currentRole = null;      // kept for backward compatibility in a few places
@@ -735,6 +780,7 @@ const MODULES = [
   ['appointments','المواعيد'],
   ['inventory','المخزون والمشتريات'],
   ['expenses','المصروفات'],
+  ['income','الوارد (دخل إضافي)'],
   ['dashboard','التقارير'],
   ['audit','سجل النشاط']
 ];
@@ -817,8 +863,8 @@ async function changePassword(){
 
 function defaultPermissionsFor(oldRole){
   // backward compatibility for the two original accounts created before the permissions system existed
-  if(oldRole === 'admin') return { patients:'edit', appointments:'edit', inventory:'edit', expenses:'edit', dashboard:'edit', audit:'edit' };
-  return { patients:'edit', appointments:'edit', inventory:'none', expenses:'none', dashboard:'none', audit:'none' };
+  if(oldRole === 'admin') return { patients:'edit', appointments:'edit', inventory:'edit', expenses:'edit', income:'edit', dashboard:'edit', audit:'edit' };
+  return { patients:'edit', appointments:'edit', inventory:'none', expenses:'none', income:'none', dashboard:'none', audit:'none' };
 }
 
 function applyRolePermissions(){
@@ -839,6 +885,7 @@ function applyRolePermissions(){
   document.getElementById('add-appt-btn').style.display = canEdit('appointments') ? '' : 'none';
   document.getElementById('add-item-btn').style.display = canEdit('inventory') ? '' : 'none';
   document.getElementById('add-expense-btn').style.display = canEdit('expenses') ? '' : 'none';
+  document.getElementById('add-income-btn').style.display = canEdit('income') ? '' : 'none';
 
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   const firstVisible = MODULES.find(([mod])=>canView(mod));
@@ -895,11 +942,12 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(btn.style.display==='none') return;
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    ['dashboard','patients','appointments','inventory','expenses','audit','users'].forEach(t=>{
+    ['dashboard','patients','appointments','inventory','expenses','income','audit','users'].forEach(t=>{
       document.getElementById('tab-'+t).style.display = (t===btn.dataset.tab)?'block':'none';
     });
     if(btn.dataset.tab==='dashboard') renderDashboard();
     if(btn.dataset.tab==='users') renderUsersList();
+    if(btn.dataset.tab==='income') renderIncome();
   });
 });
 function toggleForm(id){ document.getElementById(id).classList.toggle('open'); }
@@ -922,10 +970,11 @@ async function loadAll(){
   try{ const r = await storageGet('inventory-items'); items = r?JSON.parse(r.value):[]; }catch(e){ items=[]; }
   try{ const r = await storageGet('inventory-log'); invLog = r?JSON.parse(r.value):[]; }catch(e){ invLog=[]; }
   try{ const r = await storageGet('expenses-list'); expenses = r?JSON.parse(r.value):[]; }catch(e){ expenses=[]; }
+  try{ const r = await storageGet('other-income-list'); otherIncome = r?JSON.parse(r.value):[]; }catch(e){ otherIncome=[]; }
   try{ const r = await storageGet('audit-log'); auditLog = r?JSON.parse(r.value):[]; }catch(e){ auditLog=[]; }
   try{ const r = await storageGet('closed-months'); closedMonths = r?JSON.parse(r.value):[]; }catch(e){ closedMonths=[]; }
   await checkMonthlyClosing();
-  renderPatients(); renderAppointments(); renderItems(); renderInvLog(); renderExpenses(); renderAudit(); renderClosedMonths();
+  renderPatients(); renderAppointments(); renderItems(); renderInvLog(); renderExpenses(); renderIncome(); renderAudit(); renderClosedMonths();
   setRepPeriod('month');
 }
 
@@ -949,12 +998,13 @@ function computeMonthSummary(monthStr){
     (p.payments||[]).forEach(pay=>{ if(pay.date>=from && pay.date<=to) income += pay.amount; });
     (p.visits||[]).forEach(v=>{ if(v.date>=from && v.date<=to){ visitsCount++; patientsSet.add(p.id); } });
   });
+  const otherIncomeTotal = otherIncome.filter(i=>i.date>=from && i.date<=to).reduce((s,i)=>s+i.amount,0);
   const purchasesTotal = invLog.filter(l=>l.type==='purchase' && l.date>=from && l.date<=to).reduce((s,l)=>{
     const it = items.find(i=>i.id===l.itemId); return s + l.qty*(it?it.price:0);
   },0);
   const expensesTotal = expenses.filter(e=>e.date>=from && e.date<=to).reduce((s,e)=>s+e.amount,0);
-  const profit = income - purchasesTotal - expensesTotal;
-  return { month:monthStr, income, purchasesTotal, expensesTotal, profit, visitsCount, patientsCount:patientsSet.size, closedAt: nowStamp() };
+  const profit = income + otherIncomeTotal - purchasesTotal - expensesTotal;
+  return { month:monthStr, income, otherIncomeTotal, purchasesTotal, expensesTotal, profit, visitsCount, patientsCount:patientsSet.size, closedAt: nowStamp() };
 }
 async function checkMonthlyClosing(){
   let activeMonth;
@@ -981,6 +1031,7 @@ function renderClosedMonths(){
     <tr>
       <td><b>${c.month}</b></td>
       <td class="amount">${fmt(c.income)}</td>
+      <td class="amount">${fmt(c.otherIncomeTotal||0)}</td>
       <td class="amount">${fmt(c.purchasesTotal)}</td>
       <td class="amount">${fmt(c.expensesTotal)}</td>
       <td class="amount" style="color:var(--ok);">${fmt(c.profit)}</td>
@@ -992,6 +1043,11 @@ function openMonthDetail(monthStr){
   const { from, to } = monthRange(monthStr);
   const inRange = (d)=> d>=from && d<=to;
   document.getElementById('md-title').textContent = 'تفاصيل شهر '+monthStr;
+
+  const incList = otherIncome.filter(i=>inRange(i.date));
+  document.getElementById('md-income').innerHTML = incList.length
+    ? incList.map(i=>`<li><span>${i.date} — ${escapeHtml(i.desc)}</span><span class="h-amount">${fmt(i.amount)}</span></li>`).join('')
+    : '<li class="history-empty" style="border:none;">لا يوجد وارد</li>';
 
   const expList = expenses.filter(e=>inRange(e.date));
   document.getElementById('md-expenses').innerHTML = expList.length
@@ -1335,7 +1391,7 @@ function goAddNewPatientFromAppt(){
   document.getElementById('a-name-suggest').classList.remove('open');
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelector('.tab-btn[data-tab="patients"]').classList.add('active');
-  ['dashboard','patients','appointments','inventory','expenses','audit','users'].forEach(t=>{
+  ['dashboard','patients','appointments','inventory','expenses','income','audit','users'].forEach(t=>{
     document.getElementById('tab-'+t).style.display = (t==='patients') ? 'block' : 'none';
   });
   document.getElementById('p-name').value = typedName;
@@ -1348,7 +1404,7 @@ function bookAppointmentForPatient(patientId){
   closePatientModal();
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelector('.tab-btn[data-tab="appointments"]').classList.add('active');
-  ['dashboard','patients','appointments','inventory','expenses','audit','users'].forEach(t=>{
+  ['dashboard','patients','appointments','inventory','expenses','income','audit','users'].forEach(t=>{
     document.getElementById('tab-'+t).style.display = (t==='appointments') ? 'block' : 'none';
   });
   document.getElementById('a-name').value = p.name;
@@ -1643,6 +1699,49 @@ function renderExpenses(){
 document.getElementById('filter-exp-type').addEventListener('change', renderExpenses);
 updateExpenseCategoryOptions();
 
+/* ============ OTHER INCOME (وارد) ============ */
+function addIncome(){
+  const desc = document.getElementById('in-desc').value.trim();
+  const amount = parseFloat(document.getElementById('in-amount').value)||0;
+  const date = document.getElementById('in-date').value || todayStr();
+  if(!desc){ alert('من فضلك أدخل وصف/مصدر الوارد'); return; }
+  if(!amount || amount<=0){ alert('من فضلك أدخل مبلغ صحيح'); return; }
+  otherIncome.unshift({ id:Date.now(), desc, amount, date });
+  saveList('other-income-list', otherIncome);
+  logAction('إضافة وارد', desc+' — '+fmt(amount));
+  ['in-desc','in-amount','in-date'].forEach(id=>document.getElementById(id).value='');
+  toggleForm('income-form');
+  renderIncome();
+}
+function deleteIncome(id){
+  const inc = otherIncome.find(x=>x.id===id);
+  if(!confirm('هل تريد حذف هذا الوارد؟')) return;
+  otherIncome = otherIncome.filter(x=>x.id!==id);
+  saveList('other-income-list', otherIncome);
+  logAction('حذف وارد', inc?inc.desc:'');
+  renderIncome();
+}
+function renderIncome(){
+  const q = (document.getElementById('filter-income').value||'').trim();
+  const from = document.getElementById('filter-income-from').value;
+  const to = document.getElementById('filter-income-to').value;
+  let list = otherIncome.filter(i => !q || i.desc.includes(q));
+  if(from) list = list.filter(i=>i.date >= from);
+  if(to) list = list.filter(i=>i.date <= to);
+  const body = document.getElementById('income-body');
+  body.innerHTML = list.map(i=>`
+    <tr>
+      <td><b>${escapeHtml(i.desc)}</b></td>
+      <td class="amount">${fmt(i.amount)}</td>
+      <td class="muted">${i.date}</td>
+      <td>${canEdit('income') ? `<button class="btn btn-danger btn-sm" onclick="deleteIncome(${i.id})">حذف</button>` : ''}</td>
+    </tr>`).join('');
+  document.getElementById('income-empty').style.display = list.length?'none':'block';
+  document.getElementById('stat-income-count').textContent = list.length;
+  document.getElementById('stat-income-total').textContent = fmt(list.reduce((s,i)=>s+i.amount,0));
+}
+['filter-income','filter-income-from','filter-income-to'].forEach(id=>document.getElementById(id).addEventListener('input', renderIncome));
+
 /* ============ AUDIT ============ */
 function renderAudit(){
   const q = (document.getElementById('filter-audit').value||'').trim();
@@ -1679,6 +1778,7 @@ function renderDashboard(){
     (p.payments||[]).forEach(pay=>{ if(inRange(pay.date)) income += pay.amount; });
     (p.visits||[]).forEach(v=>{ if(inRange(v.date)) visitsCount++; });
   });
+  const otherIncomeTotal = otherIncome.filter(i=>inRange(i.date)).reduce((s,i)=>s+i.amount,0);
   const purchasesTotal = invLog.filter(l=>l.type==='purchase' && inRange(l.date)).reduce((s,l)=>{
     const it = items.find(i=>i.id===l.itemId);
     return s + l.qty * (it?it.price:0);
@@ -1687,11 +1787,12 @@ function renderDashboard(){
   const expensesClinic = expensesInRange.filter(e=>expenseType(e)==='clinic').reduce((s,e)=>s+e.amount,0);
   const expensesPersonal = expensesInRange.filter(e=>expenseType(e)==='personal').reduce((s,e)=>s+e.amount,0);
   const expensesTotal = expensesClinic + expensesPersonal;
-  const profit = income - purchasesTotal - expensesTotal;
+  const profit = income + otherIncomeTotal - purchasesTotal - expensesTotal;
   const upcoming = appointments.filter(a=>a.date>=todayStr() && a.status==='محجوز').length;
   const lowStock = items.filter(it=>it.qty<=it.min).length;
 
   document.getElementById('d-income').textContent = fmt(income);
+  document.getElementById('d-other-income').textContent = fmt(otherIncomeTotal);
   document.getElementById('d-purchases').textContent = fmt(purchasesTotal);
   document.getElementById('d-expenses-clinic').textContent = fmt(expensesClinic);
   document.getElementById('d-expenses-personal').textContent = fmt(expensesPersonal);
@@ -1703,7 +1804,7 @@ function renderDashboard(){
 
 /* ============ BACKUP ============ */
 function downloadBackup(){
-  const data = { patients, appointments, items, invLog, expenses, auditLog, exportedAt:new Date().toISOString() };
+  const data = { patients, appointments, items, invLog, expenses, otherIncome, auditLog, exportedAt:new Date().toISOString() };
   const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1724,7 +1825,7 @@ function triggerRestore(){
     try{
       const text = await file.text();
       const data = JSON.parse(text);
-      const mapping = { patients:'patients-list', appointments:'appointments-list', items:'inventory-items', invLog:'inventory-log', expenses:'expenses-list', auditLog:'audit-log' };
+      const mapping = { patients:'patients-list', appointments:'appointments-list', items:'inventory-items', invLog:'inventory-log', expenses:'expenses-list', otherIncome:'other-income-list', auditLog:'audit-log' };
       for(const localKey of Object.keys(mapping)){
         if(data[localKey] !== undefined){
           await storageSet(mapping[localKey], JSON.stringify(data[localKey]));
@@ -1879,6 +1980,7 @@ async function renderUsersList(){
 
 document.getElementById('e-date').value = todayStr();
 document.getElementById('a-date').value = todayStr();
+document.getElementById('in-date').value = todayStr();
 
 /* ============ DOCTOR DISPLAY SCREEN ============ */
 function openDisplayScreen(){
