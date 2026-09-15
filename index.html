@@ -239,6 +239,14 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
     المواعيد
   </button>
+  <button class="tab-btn" data-tab="ortho">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8c0-2 1.5-3 3.5-3S11 6 11 8s-1.5 3-3.5 3M13 16c0 2 1.5 3 3.5 3s3.5-1 3.5-3-1.5-3-3.5-3"/><path d="M7.5 11v3a3 3 0 0 0 3 3h1"/></svg>
+    التقويم
+  </button>
+  <button class="tab-btn" data-tab="ortho-report">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 12A9 9 0 0 0 12 3v9z"/></svg>
+    تقرير نسبة التقويم
+  </button>
   <button class="tab-btn" data-tab="inventory">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18l-2 13H5L3 6z"/><path d="M8 6V4a4 4 0 0 1 8 0v2"/></svg>
     المخزون والمشتريات
@@ -278,6 +286,7 @@
       <div class="stats">
         <div class="stat-card"><b id="d-income">0</b><span>دخل من المرضى (جنيه)</span></div>
         <div class="stat-card"><b id="d-other-income">0</b><span>الوارد (جنيه)</span></div>
+        <div class="stat-card"><b id="d-ortho-income">0</b><span>دخل التقويم (جنيه)</span></div>
         <div class="stat-card"><b id="d-purchases">0</b><span>مشتريات (جنيه)</span></div>
         <div class="stat-card"><b id="d-expenses-clinic">0</b><span>مصروفات عيادة (جنيه)</span></div>
         <div class="stat-card"><b id="d-expenses-personal">0</b><span>مصروفات شخصية (جنيه)</span></div>
@@ -297,7 +306,7 @@
       <p class="muted" style="margin:-4px 0 12px;">يتم إقفال الشهر السابق تلقائيًا أول ما تفتح البرنامج بعد بداية شهر جديد، والأرقام هنا ثابتة ولا تتغير حتى لو عدّلت بيانات قديمة بعد الإقفال.</p>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>الشهر</th><th>الدخل (كشوفات)</th><th>الوارد</th><th>المشتريات</th><th>المصروفات</th><th>صافي الربح</th><th></th></tr></thead>
+          <thead><tr><th>الشهر</th><th>الدخل (كشوفات)</th><th>الوارد</th><th>دخل التقويم</th><th>المشتريات</th><th>المصروفات</th><th>صافي الربح</th><th></th></tr></thead>
           <tbody id="closed-months-body"></tbody>
         </table>
         <div class="empty-state" id="closed-months-empty" style="display:none;">لسه مفيش أشهر مقفولة (هتظهر هنا أول ما يعدي شهر كامل)</div>
@@ -400,6 +409,87 @@
           <tbody id="appt-body"></tbody>
         </table>
         <div class="empty-state" id="appt-empty" style="display:none;">لا توجد مواعيد مسجلة بعد</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ORTHO (التقويم) ================= -->
+  <section id="tab-ortho" style="display:none;">
+    <div class="stats">
+      <div class="stat-card"><b id="stat-ortho-count">0</b><span>عدد مرضى التقويم</span></div>
+      <div class="stat-card"><b id="stat-ortho-collected">0</b><span>إجمالي المحصّل</span></div>
+      <div class="stat-card"><b id="stat-ortho-remaining">0</b><span>إجمالي المتبقي</span></div>
+      <div class="stat-card alert"><b id="stat-ortho-overdue">0</b><span>أقساط متأخرة</span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>مرضى التقويم</h2>
+        <div class="filter-row">
+          <input id="filter-ortho" placeholder="ابحث بالاسم أو الهاتف...">
+        </div>
+        <button class="btn btn-primary" id="add-ortho-btn" onclick="toggleForm('ortho-form')">+ إضافة مريض تقويم</button>
+      </div>
+      <div class="form-card" id="ortho-form">
+        <div class="form-grid">
+          <label>الاسم *<input id="o-name" placeholder="اسم مريض التقويم" required></label>
+          <label>رقم الهاتف *<input id="o-phone" placeholder="01xxxxxxxxx" required></label>
+          <label>السن<input id="o-age" type="number" placeholder="اختياري"></label>
+          <label>القيمة الكلية للخدمة *<input id="o-total" type="number" placeholder="0"></label>
+          <label>المبلغ المدفوع مقدمًا<input id="o-down" type="number" placeholder="0"></label>
+          <label>مدة التقويم (بالشهور) *<input id="o-months" type="number" placeholder="مثال: 12"></label>
+          <label>ملاحظات<input id="o-notes" placeholder="اختياري"></label>
+        </div>
+        <p class="muted" id="o-preview" style="margin:-2px 0 10px;"></p>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="addOrthoPatient()">حفظ وإنشاء جدول الأقساط</button>
+          <button class="btn btn-ghost" onclick="toggleForm('ortho-form')">إلغاء</button>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>الاسم</th><th>الهاتف</th><th>القيمة الكلية</th><th>القسط الشهري</th><th>مدفوع</th><th>متبقي</th><th>الحالة</th><th></th></tr></thead>
+          <tbody id="ortho-body"></tbody>
+        </table>
+        <div class="empty-state" id="ortho-empty" style="display:none;">لا يوجد مرضى تقويم مسجلين بعد</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ORTHO REVENUE-SHARE REPORT (منفصل تمامًا عن حسابات العيادة) ================= -->
+  <section id="tab-ortho-report" style="display:none;">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>إعداد نسبة تقسيم دخل التقويم</h2>
+      </div>
+      <div class="form-grid" style="max-width:320px;">
+        <label>نسبة العيادة %
+          <input id="or-clinic-pct" type="number" min="0" max="100" placeholder="35">
+        </label>
+      </div>
+      <button class="btn btn-primary btn-sm" id="or-save-pct-btn" onclick="saveOrthoSharePct()">حفظ النسبة</button>
+      <p class="muted" style="margin-top:8px;">نسبة العيادة بتتحسم من إجمالي كل تحصيل تقويم (المقدم + كل قسط)، والباقي بيظهر تحت كنصيب منفصل — من غير ما يدخل في أي حساب من حسابات العيادة الأساسية.</p>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card"><b id="stat-or-total">0</b><span>إجمالي دخل التقويم (الكل)</span></div>
+      <div class="stat-card profit"><b id="stat-or-clinic">0</b><span>نصيب العيادة</span></div>
+      <div class="stat-card alert"><b id="stat-or-other">0</b><span>النصيب الآخر (منفصل)</span></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>تفاصيل كل تحصيل</h2>
+        <div class="filter-row">
+          <input id="filter-or-from" type="date" title="من تاريخ">
+          <input id="filter-or-to" type="date" title="إلى تاريخ">
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>المريض</th><th>البيان</th><th>التاريخ</th><th>الإجمالي</th><th>نصيب العيادة</th><th>النصيب الآخر</th></tr></thead>
+          <tbody id="or-body"></tbody>
+        </table>
+        <div class="empty-state" id="or-empty" style="display:none;">لا يوجد تحصيل تقويم مسجل بعد</div>
       </div>
     </div>
   </section>
@@ -660,6 +750,8 @@
     <div class="modal-body">
       <p class="modal-section-title">بنود الوارد</p>
       <ul class="history-list" id="md-income"></ul>
+      <p class="modal-section-title">دخل أقساط التقويم</p>
+      <ul class="history-list" id="md-ortho"></ul>
       <p class="modal-section-title">بنود المصروفات</p>
       <ul class="history-list" id="md-expenses"></ul>
       <p class="modal-section-title">حركات المشتريات</p>
@@ -668,6 +760,33 @@
       <ul class="history-list" id="md-visits"></ul>
       <div class="form-actions">
         <button class="btn btn-ghost" onclick="closeMonthDetail()">إغلاق</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= ORTHO PATIENT MODAL ================= -->
+<div class="modal-overlay" id="ortho-modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div><h3 id="om-name">—</h3><div class="m-sub" id="om-meta">—</div></div>
+      <button class="modal-close" onclick="closeOrthoModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-balance">
+        <div class="b-item"><b id="om-total">0</b><span>القيمة الكلية</span></div>
+        <div class="b-item"><b id="om-collected">0</b><span>المحصّل</span></div>
+        <div class="b-item due"><b id="om-remaining">0</b><span>المتبقي</span></div>
+      </div>
+      <p class="modal-section-title">جدول الأقساط الشهرية</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>#</th><th>تاريخ الاستحقاق</th><th>المبلغ</th><th>الحالة</th><th></th></tr></thead>
+          <tbody id="om-installments"></tbody>
+        </table>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeOrthoModal()">إغلاق</button>
       </div>
     </div>
   </div>
@@ -766,6 +885,8 @@ let items = [];
 let invLog = [];
 let expenses = [];
 let otherIncome = [];
+let orthoPatients = [];
+let orthoClinicSharePct = 35; // default; loaded from storage in loadAll
 let auditLog = [];
 let closedMonths = [];
 let currentRole = null;      // kept for backward compatibility in a few places
@@ -778,6 +899,8 @@ const FAKE_EMAIL_DOMAIN = '@esraa-dental-clinic.local';
 const MODULES = [
   ['patients','المرضى وحساباتهم'],
   ['appointments','المواعيد'],
+  ['ortho','التقويم'],
+  ['ortho-report','تقرير نسبة التقويم'],
   ['inventory','المخزون والمشتريات'],
   ['expenses','المصروفات'],
   ['income','الوارد (دخل إضافي)'],
@@ -863,8 +986,8 @@ async function changePassword(){
 
 function defaultPermissionsFor(oldRole){
   // backward compatibility for the two original accounts created before the permissions system existed
-  if(oldRole === 'admin') return { patients:'edit', appointments:'edit', inventory:'edit', expenses:'edit', income:'edit', dashboard:'edit', audit:'edit' };
-  return { patients:'edit', appointments:'edit', inventory:'none', expenses:'none', income:'none', dashboard:'none', audit:'none' };
+  if(oldRole === 'admin') return { patients:'edit', appointments:'edit', ortho:'edit', 'ortho-report':'edit', inventory:'edit', expenses:'edit', income:'edit', dashboard:'edit', audit:'edit' };
+  return { patients:'edit', appointments:'edit', ortho:'none', 'ortho-report':'none', inventory:'none', expenses:'none', income:'none', dashboard:'none', audit:'none' };
 }
 
 function applyRolePermissions(){
@@ -886,6 +1009,7 @@ function applyRolePermissions(){
   document.getElementById('add-item-btn').style.display = canEdit('inventory') ? '' : 'none';
   document.getElementById('add-expense-btn').style.display = canEdit('expenses') ? '' : 'none';
   document.getElementById('add-income-btn').style.display = canEdit('income') ? '' : 'none';
+  document.getElementById('add-ortho-btn').style.display = canEdit('ortho') ? '' : 'none';
 
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   const firstVisible = MODULES.find(([mod])=>canView(mod));
@@ -942,12 +1066,14 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     if(btn.style.display==='none') return;
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    ['dashboard','patients','appointments','inventory','expenses','income','audit','users'].forEach(t=>{
+    ['dashboard','patients','appointments','ortho','ortho-report','inventory','expenses','income','audit','users'].forEach(t=>{
       document.getElementById('tab-'+t).style.display = (t===btn.dataset.tab)?'block':'none';
     });
     if(btn.dataset.tab==='dashboard') renderDashboard();
     if(btn.dataset.tab==='users') renderUsersList();
     if(btn.dataset.tab==='income') renderIncome();
+    if(btn.dataset.tab==='ortho') renderOrtho();
+    if(btn.dataset.tab==='ortho-report') renderOrthoReport();
   });
 });
 function toggleForm(id){ document.getElementById(id).classList.toggle('open'); }
@@ -971,10 +1097,12 @@ async function loadAll(){
   try{ const r = await storageGet('inventory-log'); invLog = r?JSON.parse(r.value):[]; }catch(e){ invLog=[]; }
   try{ const r = await storageGet('expenses-list'); expenses = r?JSON.parse(r.value):[]; }catch(e){ expenses=[]; }
   try{ const r = await storageGet('other-income-list'); otherIncome = r?JSON.parse(r.value):[]; }catch(e){ otherIncome=[]; }
+  try{ const r = await storageGet('ortho-patients-list'); orthoPatients = r?JSON.parse(r.value):[]; }catch(e){ orthoPatients=[]; }
+  try{ const r = await storageGet('ortho-settings'); orthoClinicSharePct = r ? (JSON.parse(r.value).clinicSharePercent ?? 35) : 35; }catch(e){ orthoClinicSharePct=35; }
   try{ const r = await storageGet('audit-log'); auditLog = r?JSON.parse(r.value):[]; }catch(e){ auditLog=[]; }
   try{ const r = await storageGet('closed-months'); closedMonths = r?JSON.parse(r.value):[]; }catch(e){ closedMonths=[]; }
   await checkMonthlyClosing();
-  renderPatients(); renderAppointments(); renderItems(); renderInvLog(); renderExpenses(); renderIncome(); renderAudit(); renderClosedMonths();
+  renderPatients(); renderAppointments(); renderItems(); renderInvLog(); renderExpenses(); renderIncome(); renderOrtho(); renderOrthoReport(); renderAudit(); renderClosedMonths();
   setRepPeriod('month');
 }
 
@@ -991,6 +1119,72 @@ function monthRange(monthStr){
   const to = monthStr+'-'+String(lastDay).padStart(2,'0');
   return { from, to };
 }
+function allOrthoTransactions(){
+  // every collection event (down payment + each paid installment) across all ortho patients
+  const rows = [];
+  orthoPatients.forEach(o=>{
+    if(o.downPayment > 0){
+      rows.push({ patientId:o.id, patient:o.name, label:'مقدم', date:o.startDate, amount:o.downPayment });
+    }
+    (o.installments||[]).forEach(inst=>{
+      if(inst.paid) rows.push({ patientId:o.id, patient:o.name, label:'قسط '+inst.index, date:inst.paidDate, amount:inst.amount });
+    });
+  });
+  return rows;
+}
+function orthoIncomeInRange(from, to){
+  // returns ONLY the clinic's share (used for the clinic's own profit/reports) — the rest is tracked separately and never counted here
+  const total = allOrthoTransactions().filter(r=>r.date>=from && r.date<=to).reduce((s,r)=>s+r.amount,0);
+  return Math.round(total * (orthoClinicSharePct/100) * 100) / 100;
+}
+async function saveOrthoSharePct(){
+  if(!canEdit('ortho-report')){ alert('التعديل هنا متاح لمن لديه صلاحية تعديل على "تقرير نسبة التقويم" فقط'); return; }
+  const pct = parseFloat(document.getElementById('or-clinic-pct').value);
+  if(isNaN(pct) || pct<0 || pct>100){ alert('من فضلك أدخل نسبة صحيحة بين 0 و100'); return; }
+  orthoClinicSharePct = pct;
+  await storageSet('ortho-settings', JSON.stringify({ clinicSharePercent: pct }));
+  logAction('تعديل نسبة تقسيم التقويم', pct+'% للعيادة');
+  renderOrthoReport();
+  renderDashboard();
+  alert('تم حفظ النسبة بنجاح');
+}
+function renderOrthoReport(){
+  const pctInput = document.getElementById('or-clinic-pct');
+  if(pctInput && document.activeElement !== pctInput) pctInput.value = orthoClinicSharePct;
+  const editable = canEdit('ortho-report');
+  document.getElementById('or-clinic-pct').disabled = !editable;
+  document.getElementById('or-save-pct-btn').style.display = editable ? '' : 'none';
+
+  const from = document.getElementById('filter-or-from').value;
+  const to = document.getElementById('filter-or-to').value;
+  let rows = allOrthoTransactions();
+  if(from) rows = rows.filter(r=>r.date>=from);
+  if(to) rows = rows.filter(r=>r.date<=to);
+  rows.sort((a,b)=>b.date.localeCompare(a.date));
+
+  const pct = orthoClinicSharePct;
+  let totalAll=0, totalClinic=0, totalOther=0;
+  const body = document.getElementById('or-body');
+  body.innerHTML = rows.map(r=>{
+    const clinicShare = Math.round(r.amount*(pct/100)*100)/100;
+    const otherShare = Math.round((r.amount-clinicShare)*100)/100;
+    totalAll += r.amount; totalClinic += clinicShare; totalOther += otherShare;
+    return `<tr>
+      <td><b>${escapeHtml(r.patient)}</b></td>
+      <td class="muted">${escapeHtml(r.label)}</td>
+      <td class="muted">${r.date}</td>
+      <td class="amount">${fmt(r.amount)}</td>
+      <td class="amount" style="color:var(--ok);">${fmt(clinicShare)}</td>
+      <td class="amount" style="color:var(--danger);">${fmt(otherShare)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('or-empty').style.display = rows.length?'none':'block';
+  document.getElementById('stat-or-total').textContent = fmt(totalAll);
+  document.getElementById('stat-or-clinic').textContent = fmt(totalClinic);
+  document.getElementById('stat-or-other').textContent = fmt(totalOther);
+}
+['filter-or-from','filter-or-to'].forEach(id=>document.getElementById(id).addEventListener('input', renderOrthoReport));
+
 function computeMonthSummary(monthStr){
   const { from, to } = monthRange(monthStr);
   let income=0, visitsCount=0; const patientsSet = new Set();
@@ -999,12 +1193,13 @@ function computeMonthSummary(monthStr){
     (p.visits||[]).forEach(v=>{ if(v.date>=from && v.date<=to){ visitsCount++; patientsSet.add(p.id); } });
   });
   const otherIncomeTotal = otherIncome.filter(i=>i.date>=from && i.date<=to).reduce((s,i)=>s+i.amount,0);
+  const orthoIncomeTotal = orthoIncomeInRange(from, to);
   const purchasesTotal = invLog.filter(l=>l.type==='purchase' && l.date>=from && l.date<=to).reduce((s,l)=>{
     const it = items.find(i=>i.id===l.itemId); return s + l.qty*(it?it.price:0);
   },0);
   const expensesTotal = expenses.filter(e=>e.date>=from && e.date<=to).reduce((s,e)=>s+e.amount,0);
-  const profit = income + otherIncomeTotal - purchasesTotal - expensesTotal;
-  return { month:monthStr, income, otherIncomeTotal, purchasesTotal, expensesTotal, profit, visitsCount, patientsCount:patientsSet.size, closedAt: nowStamp() };
+  const profit = income + otherIncomeTotal + orthoIncomeTotal - purchasesTotal - expensesTotal;
+  return { month:monthStr, income, otherIncomeTotal, orthoIncomeTotal, purchasesTotal, expensesTotal, profit, visitsCount, patientsCount:patientsSet.size, closedAt: nowStamp() };
 }
 async function checkMonthlyClosing(){
   let activeMonth;
@@ -1032,6 +1227,7 @@ function renderClosedMonths(){
       <td><b>${c.month}</b></td>
       <td class="amount">${fmt(c.income)}</td>
       <td class="amount">${fmt(c.otherIncomeTotal||0)}</td>
+      <td class="amount">${fmt(c.orthoIncomeTotal||0)}</td>
       <td class="amount">${fmt(c.purchasesTotal)}</td>
       <td class="amount">${fmt(c.expensesTotal)}</td>
       <td class="amount" style="color:var(--ok);">${fmt(c.profit)}</td>
@@ -1048,6 +1244,15 @@ function openMonthDetail(monthStr){
   document.getElementById('md-income').innerHTML = incList.length
     ? incList.map(i=>`<li><span>${i.date} — ${escapeHtml(i.desc)}</span><span class="h-amount">${fmt(i.amount)}</span></li>`).join('')
     : '<li class="history-empty" style="border:none;">لا يوجد وارد</li>';
+
+  const orthoRows = [];
+  orthoPatients.forEach(o=>{
+    if(inRange(o.startDate)) orthoRows.push({ date:o.startDate, label:o.name+' — مقدم', amount:o.downPayment });
+    (o.installments||[]).forEach(inst=>{ if(inst.paid && inRange(inst.paidDate)) orthoRows.push({ date:inst.paidDate, label:o.name+' — قسط '+inst.index, amount:inst.amount }); });
+  });
+  document.getElementById('md-ortho').innerHTML = orthoRows.length
+    ? orthoRows.sort((a,b)=>a.date.localeCompare(b.date)).map(r=>`<li><span>${r.date} — ${escapeHtml(r.label)}</span><span class="h-amount">${fmt(r.amount)}</span></li>`).join('')
+    : '<li class="history-empty" style="border:none;">لا يوجد دخل تقويم</li>';
 
   const expList = expenses.filter(e=>inRange(e.date));
   document.getElementById('md-expenses').innerHTML = expList.length
@@ -1391,7 +1596,7 @@ function goAddNewPatientFromAppt(){
   document.getElementById('a-name-suggest').classList.remove('open');
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelector('.tab-btn[data-tab="patients"]').classList.add('active');
-  ['dashboard','patients','appointments','inventory','expenses','income','audit','users'].forEach(t=>{
+  ['dashboard','patients','appointments','ortho','ortho-report','inventory','expenses','income','audit','users'].forEach(t=>{
     document.getElementById('tab-'+t).style.display = (t==='patients') ? 'block' : 'none';
   });
   document.getElementById('p-name').value = typedName;
@@ -1404,7 +1609,7 @@ function bookAppointmentForPatient(patientId){
   closePatientModal();
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelector('.tab-btn[data-tab="appointments"]').classList.add('active');
-  ['dashboard','patients','appointments','inventory','expenses','income','audit','users'].forEach(t=>{
+  ['dashboard','patients','appointments','ortho','ortho-report','inventory','expenses','income','audit','users'].forEach(t=>{
     document.getElementById('tab-'+t).style.display = (t==='appointments') ? 'block' : 'none';
   });
   document.getElementById('a-name').value = p.name;
@@ -1742,6 +1947,151 @@ function renderIncome(){
 }
 ['filter-income','filter-income-from','filter-income-to'].forEach(id=>document.getElementById(id).addEventListener('input', renderIncome));
 
+/* ============ ORTHO (التقويم) — installment plan module ============ */
+function addMonths(dateStr, n){
+  const d = new Date(dateStr);
+  d.setMonth(d.getMonth() + n);
+  return d.toISOString().slice(0,10);
+}
+function generateInstallments(totalCost, downPayment, months, startDate){
+  const remaining = Math.max(0, totalCost - downPayment);
+  const base = Math.round((remaining / months) * 100) / 100;
+  const installments = [];
+  let sumSoFar = 0;
+  for(let i=1; i<=months; i++){
+    let amount = base;
+    if(i === months){ amount = Math.round((remaining - sumSoFar) * 100) / 100; } // last installment absorbs rounding difference
+    sumSoFar += amount;
+    installments.push({ index:i, dueDate: addMonths(startDate, i), amount, paid:false, paidDate:null });
+  }
+  return installments;
+}
+function updateOrthoPreview(){
+  const total = parseFloat(document.getElementById('o-total').value)||0;
+  const down = parseFloat(document.getElementById('o-down').value)||0;
+  const months = parseInt(document.getElementById('o-months').value)||0;
+  const preview = document.getElementById('o-preview');
+  if(total>0 && months>0){
+    const remaining = Math.max(0, total-down);
+    const installment = Math.round((remaining/months)*100)/100;
+    preview.textContent = 'المتبقي: '+fmt(remaining)+' جنيه ÷ '+months+' شهر = قسط شهري ثابت تقريبي '+fmt(installment)+' جنيه';
+  } else {
+    preview.textContent = '';
+  }
+}
+['o-total','o-down','o-months'].forEach(id=>document.getElementById(id).addEventListener('input', updateOrthoPreview));
+
+function addOrthoPatient(){
+  const name = document.getElementById('o-name').value.trim();
+  const phone = document.getElementById('o-phone').value.trim();
+  const age = document.getElementById('o-age').value.trim();
+  const totalCost = parseFloat(document.getElementById('o-total').value)||0;
+  const downPayment = parseFloat(document.getElementById('o-down').value)||0;
+  const months = parseInt(document.getElementById('o-months').value)||0;
+  const notes = document.getElementById('o-notes').value.trim();
+  if(!name){ alert('من فضلك أدخل اسم المريض'); return; }
+  if(!phone){ alert('من فضلك أدخل رقم الهاتف'); return; }
+  if(!totalCost || totalCost<=0){ alert('من فضلك أدخل القيمة الكلية للخدمة'); return; }
+  if(!months || months<=0){ alert('من فضلك أدخل مدة التقويم بالشهور'); return; }
+  if(downPayment > totalCost){ alert('المبلغ المقدم أكبر من القيمة الكلية!'); return; }
+
+  const startDate = todayStr();
+  const installments = generateInstallments(totalCost, downPayment, months, startDate);
+  orthoPatients.unshift({ id:Date.now(), name, phone, age, notes, totalCost, downPayment, months, startDate, installments });
+  saveList('ortho-patients-list', orthoPatients);
+  logAction('إضافة مريض تقويم', name+' — '+fmt(totalCost)+' على '+months+' شهر');
+  ['o-name','o-phone','o-age','o-total','o-down','o-months','o-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('o-preview').textContent = '';
+  toggleForm('ortho-form');
+  renderOrtho();
+}
+function deleteOrthoPatient(id){
+  const o = orthoPatients.find(x=>x.id===id);
+  if(!confirm('هل تريد حذف مريض التقويم ده وكل جدول أقساطه؟')) return;
+  orthoPatients = orthoPatients.filter(x=>x.id!==id);
+  saveList('ortho-patients-list', orthoPatients);
+  logAction('حذف مريض تقويم', o?o.name:'');
+  renderOrtho();
+}
+function orthoTotals(o){
+  const collected = o.downPayment + o.installments.filter(i=>i.paid).reduce((s,i)=>s+i.amount,0);
+  const remaining = Math.max(0, o.totalCost - collected);
+  const overdueCount = o.installments.filter(i=>!i.paid && i.dueDate < todayStr()).length;
+  return { collected, remaining, overdueCount };
+}
+function openOrthoModal(id){
+  const o = orthoPatients.find(x=>x.id===id); if(!o) return;
+  document.getElementById('om-name').textContent = o.name;
+  document.getElementById('om-meta').textContent = [o.phone, o.age?('السن: '+o.age):''].filter(Boolean).join(' · ');
+  const t = orthoTotals(o);
+  document.getElementById('om-total').textContent = fmt(o.totalCost);
+  document.getElementById('om-collected').textContent = fmt(t.collected);
+  document.getElementById('om-remaining').textContent = fmt(t.remaining);
+
+  const body = document.getElementById('om-installments');
+  const today = todayStr();
+  body.innerHTML = o.installments.map(inst=>{
+    const overdue = !inst.paid && inst.dueDate < today;
+    const statusBadge = inst.paid
+      ? '<span class="badge badge-ok">مدفوع '+(inst.paidDate?'('+inst.paidDate+')':'')+'</span>'
+      : (overdue ? '<span class="badge badge-due">متأخر</span>' : '<span class="badge badge-status">لم يحن بعد</span>');
+    return `<tr ${overdue?'style="background:var(--danger-soft);"':''}>
+      <td>${inst.index}</td>
+      <td class="muted">${inst.dueDate}</td>
+      <td class="amount">${fmt(inst.amount)}</td>
+      <td>${statusBadge}</td>
+      <td>${(!inst.paid && canEdit('ortho')) ? `<button class="btn btn-ok btn-sm" onclick="markInstallmentPaid(${o.id},${inst.index})">تسجيل الدفع</button>` : ''}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('ortho-modal').classList.add('open');
+}
+function closeOrthoModal(){ document.getElementById('ortho-modal').classList.remove('open'); }
+document.getElementById('ortho-modal').addEventListener('click', (e)=>{ if(e.target.id==='ortho-modal') closeOrthoModal(); });
+
+function markInstallmentPaid(orthoId, index){
+  const o = orthoPatients.find(x=>x.id===orthoId); if(!o) return;
+  const inst = o.installments.find(i=>i.index===index); if(!inst) return;
+  inst.paid = true;
+  inst.paidDate = todayStr();
+  saveList('ortho-patients-list', orthoPatients);
+  logAction('تحصيل قسط تقويم', o.name+' — قسط '+index+' ('+fmt(inst.amount)+')');
+  openOrthoModal(orthoId);
+  renderOrtho();
+}
+
+function renderOrtho(){
+  const q = (document.getElementById('filter-ortho').value||'').trim();
+  const list = orthoPatients.filter(o => !q || o.name.includes(q) || (o.phone||'').includes(q));
+  const body = document.getElementById('ortho-body');
+  let overdueTotal = 0, collectedTotal = 0, remainingTotal = 0;
+  body.innerHTML = list.map(o=>{
+    const t = orthoTotals(o);
+    collectedTotal += t.collected; remainingTotal += t.remaining; overdueTotal += t.overdueCount;
+    const remaining = Math.max(0, o.totalCost - t.collected - 0); // remaining already computed
+    const installment = o.installments.length ? o.installments[0].amount : 0;
+    const statusBadge = t.overdueCount>0 ? `<span class="badge badge-due">متأخر (${t.overdueCount})</span>` : '<span class="badge badge-ok">منتظم</span>';
+    return `<tr>
+      <td><b class="p-link" onclick="openOrthoModal(${o.id})">${escapeHtml(o.name)}</b></td>
+      <td>${escapeHtml(o.phone||'—')}</td>
+      <td class="amount">${fmt(o.totalCost)}</td>
+      <td class="amount">${fmt(installment)}</td>
+      <td class="amount">${fmt(t.collected)}</td>
+      <td class="amount">${fmt(t.remaining)}</td>
+      <td>${statusBadge}</td>
+      <td><div class="row-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openOrthoModal(${o.id})">عرض</button>
+        ${canEdit('ortho') ? `<button class="btn btn-danger btn-sm" onclick="deleteOrthoPatient(${o.id})">حذف</button>` : ''}
+      </div></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('ortho-empty').style.display = list.length?'none':'block';
+  document.getElementById('stat-ortho-count').textContent = orthoPatients.length;
+  document.getElementById('stat-ortho-collected').textContent = fmt(collectedTotal);
+  document.getElementById('stat-ortho-remaining').textContent = fmt(remainingTotal);
+  document.getElementById('stat-ortho-overdue').textContent = overdueTotal;
+}
+document.getElementById('filter-ortho').addEventListener('input', renderOrtho);
+
 /* ============ AUDIT ============ */
 function renderAudit(){
   const q = (document.getElementById('filter-audit').value||'').trim();
@@ -1779,6 +2129,7 @@ function renderDashboard(){
     (p.visits||[]).forEach(v=>{ if(inRange(v.date)) visitsCount++; });
   });
   const otherIncomeTotal = otherIncome.filter(i=>inRange(i.date)).reduce((s,i)=>s+i.amount,0);
+  const orthoIncomeTotal = orthoIncomeInRange(from||'0000-01-01', to||'9999-12-31');
   const purchasesTotal = invLog.filter(l=>l.type==='purchase' && inRange(l.date)).reduce((s,l)=>{
     const it = items.find(i=>i.id===l.itemId);
     return s + l.qty * (it?it.price:0);
@@ -1787,12 +2138,13 @@ function renderDashboard(){
   const expensesClinic = expensesInRange.filter(e=>expenseType(e)==='clinic').reduce((s,e)=>s+e.amount,0);
   const expensesPersonal = expensesInRange.filter(e=>expenseType(e)==='personal').reduce((s,e)=>s+e.amount,0);
   const expensesTotal = expensesClinic + expensesPersonal;
-  const profit = income + otherIncomeTotal - purchasesTotal - expensesTotal;
+  const profit = income + otherIncomeTotal + orthoIncomeTotal - purchasesTotal - expensesTotal;
   const upcoming = appointments.filter(a=>a.date>=todayStr() && a.status==='محجوز').length;
   const lowStock = items.filter(it=>it.qty<=it.min).length;
 
   document.getElementById('d-income').textContent = fmt(income);
   document.getElementById('d-other-income').textContent = fmt(otherIncomeTotal);
+  document.getElementById('d-ortho-income').textContent = fmt(orthoIncomeTotal);
   document.getElementById('d-purchases').textContent = fmt(purchasesTotal);
   document.getElementById('d-expenses-clinic').textContent = fmt(expensesClinic);
   document.getElementById('d-expenses-personal').textContent = fmt(expensesPersonal);
@@ -1804,7 +2156,7 @@ function renderDashboard(){
 
 /* ============ BACKUP ============ */
 function downloadBackup(){
-  const data = { patients, appointments, items, invLog, expenses, otherIncome, auditLog, exportedAt:new Date().toISOString() };
+  const data = { patients, appointments, items, invLog, expenses, otherIncome, orthoPatients, orthoClinicSharePct, auditLog, exportedAt:new Date().toISOString() };
   const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1825,7 +2177,7 @@ function triggerRestore(){
     try{
       const text = await file.text();
       const data = JSON.parse(text);
-      const mapping = { patients:'patients-list', appointments:'appointments-list', items:'inventory-items', invLog:'inventory-log', expenses:'expenses-list', otherIncome:'other-income-list', auditLog:'audit-log' };
+      const mapping = { patients:'patients-list', appointments:'appointments-list', items:'inventory-items', invLog:'inventory-log', expenses:'expenses-list', otherIncome:'other-income-list', orthoPatients:'ortho-patients-list', auditLog:'audit-log' };
       for(const localKey of Object.keys(mapping)){
         if(data[localKey] !== undefined){
           await storageSet(mapping[localKey], JSON.stringify(data[localKey]));
